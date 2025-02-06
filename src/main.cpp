@@ -2,7 +2,6 @@
 
 int main() {
     GraphicsContext context;
-    context.Init();
 
     while (!context.WantsToTerminate()) {
         context.Step();

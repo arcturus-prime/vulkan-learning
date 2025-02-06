@@ -1,4 +1,3 @@
-#include <iostream>
 #include <vector>
 #include <optional>
 
@@ -14,30 +13,44 @@ struct QueueFamiliesIndices {
     bool IsComplete();
 };
 
-struct GraphicsContext {
-    QueueFamiliesIndices queueIndices;
+struct SwapChainDetails {
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> modes;
+};
 
+class GraphicsContext {
+    std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+    QueueFamiliesIndices queueIndices;
+    SwapChainDetails swapDetails;
 
     VkInstance instance = VK_NULL_HANDLE;
+
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     GLFWwindow* window = nullptr;
 
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice = VK_NULL_HANDLE;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     VkQueue presentQueue = VK_NULL_HANDLE;
 
-    void Init();
-    bool WantsToTerminate();
-    void Step();
-    
-    ~GraphicsContext();
-private:
     void SetWindow();
     void SetQueues();
     void SetSurface();
+    void SetSwapchain();
     void SetInstance();
     void SetPhysicalDevice();
     void SetLogicalDevice();
+
+    bool IsPhysicalDeviceSuitable(VkPhysicalDevice device);
+
+public:
+    bool WantsToTerminate();
+    void Step();
+
+    GraphicsContext();    
+    ~GraphicsContext();
 };
