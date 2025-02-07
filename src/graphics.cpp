@@ -114,10 +114,10 @@ bool GraphicsContext::IsPhysicalDeviceSuitable(const VkPhysicalDevice device) {
 
 void GraphicsContext::SetSwapchain() {
     //select format
-    VkSurfaceFormatKHR selectedFormat = this->swapDetails.formats[0];
+    this->swapChainFormat = this->swapDetails.formats[0];
 
     for (const auto& format : this->swapDetails.formats) {
-        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) selectedFormat = format;
+        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) this->swapChainFormat = format;
     }
 
     //select presentation mode
@@ -128,17 +128,16 @@ void GraphicsContext::SetSwapchain() {
     }
 
     //select buffer extents
-    VkExtent2D selectedExtent;
     VkSurfaceCapabilitiesKHR& capabilities = this->swapDetails.capabilities;
 
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-        selectedExtent = capabilities.currentExtent;
+        this->swapChainExtent = capabilities.currentExtent;
     } else {
         int width, height;
         glfwGetFramebufferSize(this->window, &width, &height);
 
-        selectedExtent.width = std::clamp(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-        selectedExtent.height = std::clamp(static_cast<uint32_t>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        this->swapChainExtent.width = std::clamp(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        this->swapChainExtent.height = std::clamp(static_cast<uint32_t>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
     }
 
     // create swapchain
@@ -150,9 +149,9 @@ void GraphicsContext::SetSwapchain() {
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     createInfo.surface = this->surface;
     createInfo.minImageCount = imageCount;
-    createInfo.imageFormat = selectedFormat.format;
-    createInfo.imageColorSpace = selectedFormat.colorSpace;
-    createInfo.imageExtent = selectedExtent;
+    createInfo.imageFormat = this->swapChainFormat.format;
+    createInfo.imageColorSpace = this->swapChainFormat.colorSpace;
+    createInfo.imageExtent = this->swapChainExtent;
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -177,6 +176,10 @@ void GraphicsContext::SetSwapchain() {
     if (vkCreateSwapchainKHR(this->logicalDevice, &createInfo, nullptr, &this->swapchain) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create swap chain!");
     }
+
+    vkGetSwapchainImagesKHR(this->logicalDevice, this->swapchain, &imageCount, nullptr);
+    this->swapImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(this->logicalDevice, this->swapchain, &imageCount, this->swapImages.data());
 }
 
 void GraphicsContext::SetPhysicalDevice() {
@@ -253,6 +256,36 @@ void GraphicsContext::SetSurface() {
     }
 }
 
+void GraphicsContext::SetImageViews() {
+    this->swapImageViews.resize(this->swapImages.size());
+
+    for (size_t i = 0; i < this->swapImages.size(); i++) {
+        VkImageViewCreateInfo createInfo{};
+
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = this->swapImages[i];
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = this->swapChainFormat.format;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(this->logicalDevice, &createInfo, nullptr, &this->swapImageViews[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create an image view!");
+        }
+    }
+}
+
+void GraphicsContext::SetGraphicPipeline() {
+
+}
+
 bool GraphicsContext::WantsToTerminate()
 {
     return glfwWindowShouldClose(this->window);
@@ -263,8 +296,10 @@ void GraphicsContext::Step()
     glfwPollEvents();
 }
 
-
 GraphicsContext::GraphicsContext() {
+    // NOTE: THIS ORDERING OF METHOD CALLS MATTERS A LOT
+    // TODO: MAKE THIS LESS OBTUSE
+    // {
     SetWindow();
     SetInstance();
     SetSurface();
@@ -274,9 +309,18 @@ GraphicsContext::GraphicsContext() {
 
     SetSwapchain();
     SetQueues();
+    SetGraphicPipeline();
+    // }
 }
 
 GraphicsContext::~GraphicsContext() {
+    // NOTE: THIS ORDERING OF METHOD CALLS MATTERS A LOT
+    // TODO: MAKE THIS LESS OBTUSE
+    // {
+    for (auto imageView : this->swapImageViews) {
+        vkDestroyImageView(this->logicalDevice, imageView, nullptr);
+    }
+
     vkDestroySwapchainKHR(this->logicalDevice, this->swapchain, nullptr);
     vkDestroyDevice(this->logicalDevice, nullptr);
     vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
@@ -284,4 +328,5 @@ GraphicsContext::~GraphicsContext() {
 
     glfwDestroyWindow(this->window);
     glfwTerminate();
+    // }
 }

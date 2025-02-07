@@ -20,22 +20,26 @@ struct SwapChainDetails {
 };
 
 class GraphicsContext {
-    std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
-    QueueFamiliesIndices queueIndices;
-    SwapChainDetails swapDetails;
+    const std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
     VkInstance instance = VK_NULL_HANDLE;
+
+    QueueFamiliesIndices queueIndices;
+    VkQueue graphicsQueue = VK_NULL_HANDLE;
+    VkQueue presentQueue = VK_NULL_HANDLE;
+
+    SwapChainDetails swapDetails;
+    std::vector<VkImage> swapImages;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VkSurfaceFormatKHR swapChainFormat;
+    VkExtent2D swapChainExtent;
+    std::vector<VkImageView> swapImageViews;
 
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     GLFWwindow* window = nullptr;
 
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice = VK_NULL_HANDLE;
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-
-    VkQueue graphicsQueue = VK_NULL_HANDLE;
-    VkQueue presentQueue = VK_NULL_HANDLE;
 
     void SetWindow();
     void SetQueues();
@@ -44,6 +48,8 @@ class GraphicsContext {
     void SetInstance();
     void SetPhysicalDevice();
     void SetLogicalDevice();
+    void SetImageViews();
+    void SetGraphicPipeline();
 
     bool IsPhysicalDeviceSuitable(VkPhysicalDevice device);
 
