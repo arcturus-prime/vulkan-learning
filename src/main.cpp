@@ -1,10 +1,17 @@
+#include <iostream>
+#include <exception>
+
 #include "graphics.hpp"
 
 int main() {
-    GraphicsContext context;
+    try {
+        GraphicsContext context;
 
-    while (!context.WantsToTerminate()) {
-        context.Step();
+        while (!context.WantsToTerminate()) {
+            context.Step();
+        }
+    } catch (std::exception& e) {
+        std::cout << "Error: " << e.what() << std::endl;
     }
 
     return 0;

@@ -52,6 +52,7 @@ class GraphicsContext {
     void SetGraphicPipeline();
 
     bool IsPhysicalDeviceSuitable(VkPhysicalDevice device);
+    VkShaderModule CreateShaderModule(std::vector<char> &code);
 
 public:
     bool WantsToTerminate();

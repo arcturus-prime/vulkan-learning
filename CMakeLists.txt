@@ -17,10 +17,16 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw)
 
+# compile project
+set(PROJECT_SOURCE_FILES "src/main.cpp" "src/graphics.cpp" "src/fluid.cpp")
+
+add_executable(main ${PROJECT_SOURCE_FILES})
+target_link_libraries(main PRIVATE Vulkan::Vulkan glfw)
+
 # compile shaders
 set(SHADER_SOURCE_FILES "shaders/shader.frag" "shaders/shader.vert")
-
 set(SHADER_OUTPUT_FILES)
+
 add_custom_target(shaders)
 
 foreach(SHADER_SOURCE_FILE ${SHADER_SOURCE_FILES})
@@ -39,9 +45,4 @@ foreach(SHADER_SOURCE_FILE ${SHADER_SOURCE_FILES})
     list(APPEND SHADER_OUTPUT_FILES ${SHADER_OUTPUT_FILE})
 endforeach()
 
-# compile project
-set(PROJECT_SOURCE_FILES "src/main.cpp" "src/graphics.cpp" "src/fluid.cpp")
-
-add_executable(main ${PROJECT_SOURCE_FILES})
 add_dependencies(main shaders)
-target_link_libraries(main Vulkan::Vulkan glfw)

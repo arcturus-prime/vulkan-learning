@@ -1,6 +1,7 @@
 #include <set>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 
 #include "graphics.hpp"
 
@@ -282,8 +283,109 @@ void GraphicsContext::SetImageViews() {
     }
 }
 
-void GraphicsContext::SetGraphicPipeline() {
+std::vector<char> ReadShaderFile(const std::string& path) {
+    std::fstream file(path, std::ios::ate | std::ios::binary);
 
+    if (!file.is_open()) {
+        throw new std::runtime_error("Couldn't open shader file!");
+    }
+
+    size_t size = file.tellg();
+    file.seekg(0);
+
+    std::vector<char> code(size);
+    file.read(code.data(), size);
+    file.close();
+
+    return code;
+}
+
+VkShaderModule GraphicsContext::CreateShaderModule(std::vector<char>& code) {
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = reinterpret_cast<uint32_t*>(code.data());
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(this->logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        throw std::runtime_error("Could not create shader module!");
+    }
+
+    return shaderModule;
+}
+
+void GraphicsContext::SetGraphicPipeline() {
+    auto vertex = ReadShaderFile("../shader.vert.spv");
+    auto frag = ReadShaderFile("../shader.frag.spv");
+
+    auto vertModule = CreateShaderModule(vertex);
+    auto fragModule = CreateShaderModule(frag);
+
+    VkPipelineShaderStageCreateInfo vertStageInfo{};
+    vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertStageInfo.module = vertModule;
+    vertStageInfo.pName = "vert";
+
+    VkPipelineShaderStageCreateInfo fragStageInfo;
+    fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragStageInfo.module = fragModule;
+    fragStageInfo.pName = "frag";
+
+    VkPipelineShaderStageCreateInfo stages[] = { fragStageInfo, vertStageInfo };
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport{};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = (float) swapChainExtent.width;
+    viewport.height = (float) swapChainExtent.height;
+    viewport.minDepth = 0;
+    viewport.maxDepth = 1;
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = swapChainExtent;
+
+    std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicState.pDynamicStates = dynamicStates.data();
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+
+    vkDestroyShaderModule(this->logicalDevice, fragModule, nullptr);
+    vkDestroyShaderModule(this->logicalDevice, vertModule, nullptr);
 }
 
 bool GraphicsContext::WantsToTerminate()
